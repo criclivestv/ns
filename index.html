@@ -3,120 +3,137 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Advanced Network Player Input</title>
+    <title>Universal Player with Advanced Options</title>
     <style>
         body { font-family: Arial, sans-serif; margin: 0; padding: 0; background-color: #0d0d0f; color: #f4f4f9; display: flex; justify-content: center; align-items: center; min-height: 100vh; }
-        .container { width: 90%; max-width: 600px; padding: 25px; background: #1a1a1f; border-radius: 12px; box-shadow: 0 8px 16px rgba(0, 0, 0, 0.4); }
+        .container { width: 90%; max-width: 650px; padding: 25px; background: #1a1a1f; border-radius: 12px; box-shadow: 0 8px 16px rgba(0, 0, 0, 0.4); }
         h1 { color: #8a2be2; text-align: center; margin-bottom: 25px; }
         label { display: block; margin-top: 15px; font-weight: bold; color: #a9a9b2; }
         input[type="text"], select { 
             width: 100%; padding: 12px; margin-top: 5px; 
             border: 1px solid #333; background-color: #222; 
             color: #f4f4f9; border-radius: 6px; box-sizing: border-box;
-            transition: border-color 0.3s;
-        }
-        input[type="text"]:focus, select:focus {
-            border-color: #8a2be2;
-            outline: none;
         }
         button { 
             background-color: #8a2be2; color: white; padding: 12px 20px; 
             border: none; border-radius: 6px; cursor: pointer; 
             margin-top: 25px; width: 100%; font-size: 18px; 
-            font-weight: bold; transition: background-color 0.3s;
+            font-weight: bold;
         }
-        button:hover { background-color: #6a1ba6; }
+        /* Style for the advanced toggle link */
+        .toggle-link {
+            color: #4CAF50; cursor: pointer; text-decoration: underline; 
+            margin-top: 10px; display: block; text-align: right;
+            font-size: 14px;
+        }
+        #advancedOptions {
+            border-top: 1px solid #333;
+            padding-top: 15px;
+            margin-top: 15px;
+        }
         .drm-group { display: flex; gap: 10px; }
         .drm-group > div { flex: 1; }
     </style>
 </head>
 <body>
     <div class="container">
-        <h1>Network Player Settings</h1>
+        <h1>Universal Player Settings</h1>
         
         <label for="streamUrl">🔗 Stream URL *</label>
-        <input type="text" id="streamUrl" placeholder="HLS/DASH manifest link (e.g., .m3u8, .mpd)" required>
-
-        <label for="referer">🔗 Referer</label>
-        <input type="text" id="referer" placeholder="e.g., https://authorized-domain.com">
+        <input type="text" id="streamUrl" placeholder="HLS/DASH manifest link (.mpd, .m3u8)" required>
         
-        <label for="cookie">🍪 Cookie</label>
-        <input type="text" id="cookie" placeholder="e.g., sessionid=xyz; auth=abc">
+        <span class="toggle-link" onclick="toggleAdvanced()">⚙️ অ্যাডভান্সড অপশন টগল করুন</span>
 
-        <label for="origin">🚀 Origin</label>
-        <input type="text" id="origin" placeholder="e.g., https://source-domain.com (Leave blank if unsure)">
-        
-        <div class="drm-group">
-            <div>
-                <label for="userAgent">👤 UserAgent</label>
-                <select id="userAgent">
-                    <option value="Default" selected>Default</option>
-                    <option value="Chrome(PC)">Chrome (PC)</option>
-                    <option value="Firefox(PC)">Firefox (PC)</option>
-                    <option value="Chrome(Android)">Chrome (Android)</option>
-                    <option value="iPhone">iPhone</option>
-                    <option value="Custom">Custom</option>
-                </select>
+        <div id="advancedOptions" style="display:none;">
+            <p style="color:#ffc107; font-size:14px;">দ্রষ্টব্য: যদি আপনি এই ফিল্ডগুলি খালি রাখেন, প্লেয়ার স্বয়ংক্রিয়ভাবে URL থেকে ডেটা সনাক্ত করার চেষ্টা করবে।</p>
+            
+            <label for="referer">🔗 Referer</label>
+            <input type="text" id="referer" placeholder="e.g., https://authorized-domain.com">
+            
+            <label for="cookie">🍪 Cookie</label>
+            <input type="text" id="cookie" placeholder="e.g., sessionid=xyz; auth=abc">
+
+            <div class="drm-group">
+                <div>
+                    <label for="userAgent">👤 UserAgent</label>
+                    <select id="userAgent">
+                        <option value="">Default (Browser)</option>
+                        <option value="Chrome(PC)">Chrome (PC)</option>
+                        <option value="Firefox(PC)">Firefox (PC)</option>
+                        <option value="Custom">Custom</option>
+                    </select>
+                </div>
+                <div>
+                    <label for="drmScheme">🔑 DrmScheme</label>
+                    <select id="drmScheme">
+                        <option value="">Auto-Detect</option>
+                        <option value="Widevine">Widevine</option>
+                        <option value="PlayReady">PlayReady</option>
+                        <option value="ClearKey">ClearKey</option>
+                    </select>
+                </div>
             </div>
-            <div>
-                <label for="drmScheme">🔑 DrmScheme</label>
-                <select id="drmScheme">
-                    <option value="ClearKey" selected>ClearKey (Not supported by Shaka)</option>
-                    <option value="Widevine">Widevine</option>
-                    <option value="PlayReady">PlayReady</option>
-                </select>
-            </div>
+
+            <label for="drmLicense">🔑 DRM License URL / ClearKey Data</label>
+            <input type="text" id="drmLicense" placeholder="License Server URL (Widevine) or KeyId:KeyValue (ClearKey)">
         </div>
-
-        <label for="drmLicense">🔑 DRM License URL</label>
-        <input type="text" id="drmLicense" placeholder="DRM License Server URL (Only for Widevine/PlayReady)">
 
         <button onclick="loadPlayer()">▶️ Load Player</button>
     </div>
 
     <script>
+        function toggleAdvanced() {
+            const advanced = document.getElementById('advancedOptions');
+            const link = document.querySelector('.toggle-link');
+            if (advanced.style.display === 'none') {
+                advanced.style.display = 'block';
+                link.textContent = '❌ অ্যাডভান্সড অপশন লুকান';
+            } else {
+                advanced.style.display = 'none';
+                link.textContent = '⚙️ অ্যাডভান্সড অপশন টগল করুন';
+            }
+        }
+        
         // UserAgent মানগুলি
         const userAgents = {
-            'Default': '', // ব্রাউজারের ডিফল্ট
+            'Default (Browser)': '', 
             'Chrome(PC)': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
             'Firefox(PC)': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:120.0) Gecko/20100101 Firefox/120.0',
-            'Chrome(Android)': 'Mozilla/5.0 (Linux; Android 10; SM-G981B) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36',
-            'iPhone': 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1'
         };
 
         function loadPlayer() {
             const url = document.getElementById('streamUrl').value;
-            const referer = document.getElementById('referer').value;
-            const cookie = document.getElementById('cookie').value;
-            const origin = document.getElementById('origin').value;
-            const drmScheme = document.getElementById('drmScheme').value;
-            const drmLicense = document.getElementById('drmLicense').value;
-            const userAgentKey = document.getElementById('userAgent').value;
-
             if (!url) {
                 alert('Stream URL আবশ্যক!');
                 return;
             }
 
-            // UserAgent নির্ধারণ
-            const userAgent = userAgentKey === 'Custom' 
-                ? prompt('কাস্টম UserAgent মান দিন:') 
-                : userAgents[userAgentKey] || '';
-
-            // URL প্যারামিটার তৈরি করা
             const params = new URLSearchParams();
             params.set('url', url);
-            
+
+            // ম্যানুয়াল ইনপুটগুলি চেক এবং যুক্ত করা হচ্ছে
+            const referer = document.getElementById('referer').value;
+            const cookie = document.getElementById('cookie').value;
+            const drmScheme = document.getElementById('drmScheme').value;
+            const drmLicense = document.getElementById('drmLicense').value;
+            const userAgentKey = document.getElementById('userAgent').value;
+
             if (referer) params.set('referer', referer);
             if (cookie) params.set('cookie', cookie);
-            if (origin) params.set('origin', origin);
-            if (drmScheme && drmScheme !== 'ClearKey') params.set('drmScheme', drmScheme);
+            if (drmScheme) params.set('drmScheme', drmScheme);
             if (drmLicense) params.set('drmLicense', drmLicense);
-            if (userAgent) params.set('userAgent', userAgent);
+            
+            // UserAgent নির্ধারণ
+            let userAgentValue = userAgents[userAgentKey] || '';
+            if (userAgentKey === 'Custom') {
+                userAgentValue = prompt('কাস্টম UserAgent মান দিন:');
+            }
+            if (userAgentValue) params.set('userAgent', userAgentValue);
+
 
             // player.html-এ রিডাইরেক্ট করা
             window.location.href = `player.html?${params.toString()}`;
         }
     </script>
 </body>
-          </html>
+                            </html>
