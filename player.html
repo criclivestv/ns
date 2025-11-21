@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Dynamic Network Player</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/shaka-player/4.7.6/controls.min.css">
+<style>
+/* ... (Existing CSS remains the same) ... */
+body, html {
+  margin:0; padding:0; background:#000;
+  height:100%; width:100%;
+  display:flex; justify-content:center; align-items:center;
+}
+#player-container {
+  width:100%; max-width:1280px;
+  aspect-ratio:16/9; position:relative; background:#000;
+}
+video.shaka-video {
+  width:100%; height:100%; object-fit:contain; background:#000;
+}
+.shaka-controls-container {
+  z-index:9999!important; background:transparent!important;
+}
+.overlay-logo, .overlay-text {
+  position:absolute; z-index:50; pointer-events:none; 
+  color:#fff; font-weight:600;
+  transition: opacity 0.3s ease-out; 
+}
+.overlay-text { font-size:18px; text-shadow: 1px 1px 3px #000; }
+.shaka-spinner-container {
+  display: none !important;
+}
+</style>
+</head>
+<body>
+<div id="player-container">
+  <video id="video" autoplay muted playsinline class="shaka-video"></video>
+  <div class="shaka-controls-container"></div>
+  <img id="overlayLogo" class="overlay-logo">
+  <div id="overlayText" class="overlay-text"></div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/shaka-player/4.7.6/shaka-player.ui.min.js"></script>
+
+<script>
+document.addEventListener('DOMContentLoaded', async()=>{
+  const video = document.getElementById('video');
+  const container = document.getElementById('player-container');
+  // ... (Overlay and Error Message setup)
+  const overlayLogo = document.getElementById('overlayLogo');
+  const overlayText = document.getElementById('overlayText');
+
+  // Error Message setup (for on-screen display)
+  const errorMessage = document.createElement('div');
+  errorMessage.style.cssText = 'position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); color:red; background:rgba(0,0,0,0.8); padding:20px; z-index:10000; display:none; border-radius:5px;';
+  container.appendChild(errorMessage);
+
+  const player = new shaka.Player(video);
+  
+  // Error Listener
+  player.addEventListener('error', e=>{
+    const errorDetails = e.detail ? (e.detail.code ? `Shaka Error ${e.detail.code}` : e.detail.message) : 'Unknown Error';
+    console.error('Shaka error', e.detail||e);
+    errorMessage.textContent = `❌ ভিডিও লোড করতে পারেনি: ${errorDetails}`;
+    errorMessage.style.display = 'block';
+  });
+
+  // Shaka UI Initialization 
+  const ui = new shaka.ui.Overlay(player, container, video);
+  ui.configure({
+    controlPanelElements: [
+      'play_pause','mute','volume','spacer',
+      'settings','quality','picture_in_picture','fullscreen'
+    ],
+    settingsMenuElements: ['quality','playback_rate']
+  });
+
+  // Read URL params from player.html URL
+  const p = new URLSearchParams(window.location.search);
+  const url = p.get('url');
+  const referer = p.get('referer');
+  const cookie = p.get('cookie');
+  const origin = p.get('origin');
+  const drmScheme = p.get('drmScheme');
+  const drmLicense = p.get('drmLicense');
+  const userAgent = p.get('userAgent');
+
+  // 1. ডায়নামিকভাবে HTTP Headers তৈরি করা
+  const customHeaders = {};
+  if (referer) customHeaders['Referer'] = referer;
+  if (cookie) customHeaders['Cookie'] = cookie;
+  if (origin) customHeaders['Origin'] = origin;
+  // Shaka UserAgent পরিবর্তন করতে চাইলে, তা কনফিগারেশনে সেট করতে হবে
+
+  // 2. ডায়নামিকভাবে DRM কনফিগারেশন তৈরি করা
+  let drmConfig = null;
+  if (drmScheme && drmLicense) {
+    // Widevine, PlayReady
+    drmConfig = {
+      servers: {
+        // Shaka Player-কে বুঝতে হবে কোন DRM সিস্টেমের জন্য কোন লাইসেন্স সার্ভার
+        'com.widevine.alpha': drmLicense,
+        'com.microsoft.playready': drmLicense
+      }
+    };
+  }
+
+  // ✅ প্লেয়ার কনফিগারেশন: বাফারিং, DAI এবং ডায়নামিক হেডার
+  player.configure({
+    abr: {
+      enabled:true, 
+      defaultBandwidthEstimate:5000000, 
+      restriction:{minHeight:360,maxHeight:1080}
+    },
+    streaming: {
+      bufferingGoal: 30,       
+      rebufferingGoal: 5,      
+      bufferBehind:30, 
+      lowLatencyMode: false,
+      autoSetVttCuesAsText: true // DAI মেটাডেটার জন্য
+    },
+    manifest: {
+      xhr: {
+        withCredentials: true // CORS ও Cookie-এর জন্য
+      }
+    },
+    // ডায়নামিক হেডার সেট করা হচ্ছে
+    networking: {
+      defaultRequestHeaders: customHeaders
+    }
+  });
+
+  // DRM সেট করা হচ্ছে
+  if (drmConfig) {
+      player.configure('drm', drmConfig);
+  }
+  
+  // Shaka Player-এ সরাসরি User-Agent পরিবর্তন করা সম্ভব নয়। 
+  // তবে সার্ভার যদি User-Agent পরীক্ষা করে, তবে তা networking.defaultRequestHeaders-এ যোগ করা যেতে পারে।
+  // যেহেতু User-Agent একটি বিশেষ হেডার যা ব্রাউজার দ্বারা নিয়ন্ত্রিত হয়, 
+  // তাই এটি networking.defaultRequestHeaders-এ যোগ করে সার্ভারে পাঠানো হচ্ছে:
+  if (userAgent) {
+      player.configure({
+          networking: {
+              defaultRequestHeaders: {
+                  ...player.getConfiguration().networking.defaultRequestHeaders,
+                  'User-Agent': userAgent
+              }
+          }
+      });
+  }
+  
+  // ... (Overlay setup logic - keyId, keyValue, logo, wm) ...
+  const keyId = p.get('keyId');
+  const keyValue = p.get('keyValue');
+  const logoOn = p.get('logoOn')=='1';
+  const logo = p.get('logo');
+  const logoPos = p.get('logoPos') || 'top-left';
+  const logoSize = p.get('logoSize') || '120';
+  const logoOpacity = p.get('logoOpacity') || '80';
+  const wmOn = p.get('wmOn')=='1';
+  const wm = p.get('wm');
+  const wmPos = p.get('wmPos') || 'bottom-left';
+  const wmOpacity = p.get('wmOpacity') || '70';
+
+  /**
+   * Loads the video with DRM or retries without DRM.
+   */
+  async function loadVideo(){
+    if(!url) {
+      errorMessage.textContent = '❌ ভিডিও লিংক পাওয়া যায়নি।';
+      errorMessage.style.display = 'block';
+      return;
+    }
+    
+    errorMessage.style.display = 'none'; 
+
+    try{
+      // Note: ClearKey DRM needs separate configuration if used via URL params
+      if(keyId && keyValue){
+        player.configure({ drm:{ clearKeys:{ [keyId]: keyValue } } });
+      }
+      await player.load(url); // No decodeURIComponent needed as URLSearchParams handles it
+      console.log('✅ Video loaded successfully');
+      hideOverlays(); 
+    } catch(err){
+      // Error handled by event listener
+    }
+  }
+  loadVideo();
+
+  // Show logo/watermark overlays... (Logic remains the same)
+
+  // Show logo overlay (if configured)
+  if(logoOn && logo){
+    overlayLogo.src = decodeURIComponent(logo);
+    overlayLogo.style.display='block';
+    overlayLogo.style.width = logoSize+'px';
+    overlayLogo.style.opacity = logoOpacity/100;
+    setPosition(overlayLogo, logoPos);
+  } else {
+    overlayLogo.style.display='none';
+  }
+
+  // Show watermark text (if configured)
+  if(wmOn && wm){
+    overlayText.textContent = decodeURIComponent(wm);
+    overlayText.style.display='block';
+    overlayText.style.opacity = wmOpacity/100;
+    setPosition(overlayText, wmPos);
+  } else {
+    overlayText.style.display='none';
+  }
+
+  // Position helper function
+  function setPosition(el, pos){
+    el.style.top=''; el.style.left=''; el.style.right=''; el.style.bottom=''; el.style.transform='';
+    switch(pos){
+      case 'top-left': el.style.top='10px'; el.style.left='10px'; break;
+      case 'top-right': el.style.top='10px'; el.style.right='10px'; break;
+      case 'bottom-left': el.style.bottom='10px'; el.style.left='10px'; break;
+      case 'bottom-right': el.style.bottom='10px'; el.style.right='10px'; break;
+      case 'center': el.style.top='50%'; el.style.left='50%'; el.style.transform='translate(-50%,-50%)'; break;
+    }
+  }
+  
+  // New function to hide overlays smoothly
+  function hideOverlays() {
+    overlayLogo.style.opacity='0';
+    overlayText.style.opacity='0';
+    setTimeout(()=>{
+      overlayLogo.style.display='none';
+      overlayText.style.display='none';
+    },300); 
+  }
+
+  // Hide overlays on play start 
+  video.addEventListener('play', hideOverlays);
+  
+});
+</script>
+</body>
+</html>
